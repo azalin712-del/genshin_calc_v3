@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>원신 5.0+ 멀티 배너 정밀 계산기 (몬테카를로)</title>
+<style>
+:root{
+  --bg-color:#0f172a;--card-bg:#1e293b;--text-main:#f8fafc;--text-sub:#94a3b8;
+  --accent:#38bdf8;--accent-orange:#ff7043;
+  --accent-gradient:linear-gradient(135deg,#38bdf8 0%,#818cf8 100%);
+  --border:#334155;--input-bg:#0f172a;--success:#34d399;--danger:#f87171;--warning:#fbbf24;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Pretendard',-apple-system,BlinkMacSystemFont,system-ui,Roboto,sans-serif}
+body{background-color:var(--bg-color);color:var(--text-main);min-height:100vh;padding:20px;display:flex;flex-direction:column;align-items:center}
+.container{width:100%;max-width:650px}
+header{text-align:center;margin-bottom:24px}
+header h1{font-size:1.5rem;font-weight:700;margin-bottom:6px;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+header p{font-size:.85rem;color:var(--text-sub)}
+.card{background-color:var(--card-bg);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,.1)}
+.card-header-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px}
+.card h2{font-size:1rem;font-weight:600;color:var(--accent);display:flex;align-items:center;gap:8px}
+.input-group{margin-bottom:12px}
+.input-group:last-child{margin-bottom:0}
+label{display:block;font-size:.8rem;color:var(--text-sub);margin-bottom:4px}
+.row{display:flex;gap:10px}
+.col{flex:1;min-width:0}
+select,input[type="number"],input[type="text"]{width:100%;background-color:var(--input-bg);border:1px solid var(--border);border-radius:8px;color:var(--text-main);padding:9px 10px;font-size:.9rem;outline:none;transition:border-color .2s}
+select:focus,input:focus{border-color:var(--accent)}
+input::placeholder{color:#475569}
+.item-row-card{background:rgba(15,23,42,.6);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px}
+.item-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.item-head span{font-size:.8rem;color:var(--text-sub);font-weight:600}
+.btn-add{background:rgba(56,189,248,.1);border:1px dashed var(--accent);color:var(--accent);width:100%;padding:10px;border-radius:8px;cursor:pointer;font-weight:600;font-size:.9rem;margin-top:4px;transition:.2s}
+.btn-add:hover{background:rgba(56,189,248,.2)}
+.btn-del{background:transparent;border:none;color:var(--danger);cursor:pointer;font-size:.8rem;font-weight:600}
+.result-box{background:rgba(56,189,248,.05);border:1px solid rgba(56,189,248,.2);border-radius:12px;padding:16px}
+.result-item{display:flex;justify-content:space-between;align-items:center;font-size:.9rem;padding:7px 0;border-bottom:1px dashed rgba(51,65,85,.7);gap:10px}
+.result-item:last-of-type{border-bottom:none}
+.result-label{color:var(--text-sub)}
+.result-label small{display:block;font-size:.7rem;opacity:.8;margin-top:2px}
+.result-value{font-weight:700;font-size:1.15rem;color:var(--text-main);text-align:right}
+.result-value .refund{font-size:.8rem;color:var(--success);font-weight:500;display:block;margin-top:2px}
+.result-title{font-size:.85rem;font-weight:700;color:var(--text-main);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.btn-toggle-chart{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--accent);padding:10px;border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;margin-top:12px;transition:.2s}
+.btn-toggle-chart:hover{background:rgba(56,189,248,.1)}
+.chart-wrapper{display:none;margin-top:14px;padding-top:12px;border-top:1px dashed var(--border)}
+.chart-wrapper.open{display:block}
+.chart-container{display:flex;align-items:flex-end;justify-content:space-between;height:200px;padding-top:25px;box-sizing:border-box}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;margin:0 1px;min-width:0}
+.bar-val{font-size:8.5px;color:var(--text-sub);margin-bottom:4px;white-space:nowrap}
+.bar-body{width:100%;max-width:22px;background-color:var(--accent);border-radius:3px 3px 0 0;transition:height .3s ease}
+.bar-body.is-mean{background-color:var(--accent-orange);box-shadow:0 0 8px rgba(255,112,67,.6)}
+.bar-lbl{font-size:8px;color:var(--text-sub);margin-top:6px;white-space:nowrap}
+.saved-badge{font-size:.7rem;background:rgba(52,211,153,.15);color:var(--success);padding:2px 6px;border-radius:4px;white-space:nowrap}
+.chart-info{font-size:.75rem;color:var(--text-sub);margin-bottom:6px;line-height:1.4}
+.setting-sub-box{background:rgba(15,23,42,.4);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:10px}
+.check-row{display:flex;align-items:center;gap:10px;font-size:.9rem;cursor:pointer;color:var(--text-main);margin-bottom:0}
+.check-row input{width:18px;height:18px;accent-color:var(--accent)}
+.hint{font-size:.72rem;color:var(--text-sub);line-height:1.5;margin-top:8px}
+.warn{color:var(--warning)}
+.status-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin:10px 0 4px}
+.status-bar>div{height:100%;width:0;background:var(--accent-gradient);transition:width .15s}
+details summary{cursor:pointer;font-size:.85rem;color:var(--accent);font-weight:600;list-style:none}
+details summary::-webkit-details-marker{display:none}
+.sec-label{font-size:.78rem;color:var(--warning);font-weight:700;margin:10px 0 6px}
+@media (max-width:480px){
+  body{padding:12px}
+  .card{padding:16px}
+  .row{gap:8px}
+  .result-value{font-size:1.02rem}
+  header h1{font-size:1.3rem}
+}
+
+.check-row.small{font-size:.8rem;margin-bottom:4px}
+.check-row.small input{width:16px;height:16px}
+.result-value .num{color:var(--text-sub);font-size:1rem;font-weight:600}
+.result-value .num.num-main{color:var(--accent);font-size:1.6rem;font-weight:800;letter-spacing:-.5px}
+.refund-on .result-value .num{color:rgba(52,211,153,.75)}
+.refund-on .result-value .num.num-main{color:var(--success)}
+.refund-note{font-size:.7rem;color:var(--text-sub);line-height:1.45;margin:0 0 12px 26px}
+
+.result-value .cost{display:block;font-size:.75rem;font-weight:500;color:var(--text-sub);margin-top:2px}
+.result-value .num.num-prob,.refund-on .result-value .num.num-prob{color:var(--warning);font-size:1.3rem;font-weight:800}
+.bar-col{position:relative}
+.bar-tip{display:none;position:absolute;top:-4px;z-index:20;background:#020617;border:1px solid var(--border);color:var(--text-main);font-size:10px;line-height:1.4;padding:4px 7px;border-radius:6px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.bar-col:hover .bar-tip,.bar-col.show .bar-tip{display:block}
+.bar-col{cursor:default}
+
+.btn-reset{width:100%;background:rgba(248,113,113,.1);border:1px solid var(--danger);color:var(--danger);padding:11px;border-radius:8px;cursor:pointer;font-weight:700;font-size:.9rem;transition:.2s}
+.btn-reset:hover{background:rgba(248,113,113,.2)}
+
+.btn-cal{flex:0 0 46px;background:rgba(56,189,248,.1);border:1px solid var(--accent);color:var(--accent);border-radius:8px;cursor:pointer;font-size:1.1rem;transition:.2s}
+.btn-cal:hover,.btn-cal.active{background:rgba(56,189,248,.28)}
+.row > input[type="number"]#curPrism{flex:1;min-width:0}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>원신 5.0+ 멀티 배너 정밀 계산기</h1>
+    <p>몬테카를로 시뮬레이션 기반 · 누적 백분위수(P10~P90) 직접 계산</p>
+  </header>
+
+  <!-- 1. 기본 보유 및 스택 세팅 -->
+  <div class="card">
+    <div class="card-header-row">
+      <h2>⚙️ 기본 보유 및 스택 세팅</h2>
+    </div>
+
+    <div class="input-group">
+      <label for="curPrism">현재 보유한 뒤얽힌 인연 총 개수 (원석 환산 포함)</label>
+      <div class="row" style="align-items:stretch;">
+        <input type="number" id="curPrism" placeholder="예: 0" min="0">
+        <button type="button" class="btn-cal" id="btnCal" title="일퀘·공월 원석 수급 설정" aria-label="일퀘·공월 원석 수급 설정">📅</button>
+      </div>
+      <p class="hint" id="incomeHint" hidden></p>
+      <div class="setting-sub-box" id="incomePanel" hidden>
+        <label for="incomeDate">원석 수급 종료일 (오늘 이후 날짜 선택)</label>
+        <input type="date" id="incomeDate">
+        <div class="input-group" style="margin-top:10px;">
+          <label for="incomePerDay">하루 수급 원석 (일일 임무 60 + 공월 90)</label>
+          <input type="number" id="incomePerDay" value="150" min="0" step="1">
+        </div>
+        <button type="button" class="btn-del" id="btnIncomeClear">날짜 해제</button>
+        <p class="hint">오늘은 제외하고 내일부터 선택한 날까지의 일일 임무·공월 원석을 보유 인연에 더해 계산합니다. 160원석 = 1회로 환산하며 소수점은 버립니다. 이벤트·탐험·나선 보상은 포함하지 않습니다.</p>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:10px;">
+      <div class="input-group col">
+        <label for="globalCharPity">캐릭터 배너 현재 스택 (0~89)</label>
+        <input type="number" id="globalCharPity" placeholder="0" min="0" max="89">
+      </div>
+      <div class="input-group col">
+        <label for="globalCharGuaranteed">캐릭터 확정 천장 여부</label>
+        <select id="globalCharGuaranteed">
+          <option value="false">반천장 (픽뚫 가능)</option>
+          <option value="true">확정 천장 (다음 5성 픽스)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:10px;">
+      <div class="input-group col">
+        <label for="globalWeaponPity">무기 배너 현재 스택 (0~79)</label>
+        <input type="number" id="globalWeaponPity" placeholder="0" min="0" max="79">
+      </div>
+      <div class="input-group col">
+        <label for="globalWeaponFate">운명의 궤도 (무기 확정 여부)</label>
+        <select id="globalWeaponFate">
+          <option value="0">0 (확정 아님)</option>
+          <option value="1">1 (다음 5성 지정 무기 확정)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="input-group" style="margin-top:10px;">
+      <label for="simCount">시뮬레이션 횟수</label>
+      <select id="simCount">
+        <option value="100000">100,000회 (기본)</option>
+        <option value="200000">200,000회</option>
+        <option value="500000">500,000회 (느림)</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- 2. 캐릭터 배너 목표 -->
+  <div class="card">
+    <div class="card-header-row"><h2>👤 캐릭터 배너 목표 설정</h2></div>
+    <div id="charList"></div>
+    <button class="btn-add" type="button" id="btnAddChar">+ 캐릭터 목표 추가</button>
+    <p class="hint">현재 상태를 반영해 부족한 개수만큼만 뽑는 것으로 계산합니다. 여러 캐릭터는 하나의 스택에서 순서대로 이어서 뽑습니다. (미보유 = 0개, 명함 C0 = 1개, 풀돌 C6 = 7개)</p>
+  </div>
+
+  <!-- 3. 무기 목표 -->
+  <div class="card">
+    <div class="card-header-row"><h2>⚔️ 무기 목표 설정</h2></div>
+    <div id="weaponList"></div>
+    <button class="btn-add" type="button" id="btnAddWeapon">+ 무기 목표 추가</button>
+    <p class="hint">목표 무기는 "지정한 픽업 무기" 기준입니다. (미보유 = 0개, R1 = 1개, 풀재련 R5 = 5개)</p>
+  </div>
+
+  <!-- 4. 결과 -->
+  <div class="card" id="resultCard">
+    <div class="card-header-row">
+      <h2>📊 계산 결과</h2>
+      <span class="saved-badge" id="simBadge">대기 중</span>
+    </div>
+    <div class="status-bar"><div id="simProgress"></div></div>
+    <p class="chart-info" id="simStatus">목표를 설정하면 자동으로 계산합니다.</p>
+    <p class="chart-info" id="goalSummary"></p>
+
+    <label class="check-row small" for="refundOn">
+      <input type="checkbox" id="refundOn">
+      <span>스타라이트 환급 반영 (11.7%)</span>
+    </label>
+    <p class="refund-note">※ 환급률은 계정 상태(보유 캐릭터·무기 중복 여부 등)에 따라 달라지는 추정치입니다.</p>
+
+    <label class="check-row small" for="firstBonus">
+      <input type="checkbox" id="firstBonus">
+      <span>초회 보너스 사용 가능 (첫 1트럭 = 12,960원석)</span>
+    </label>
+    <p class="refund-note">※ 필요 과금액은 1트럭(119,000원 = 8,080원석) 효율 기준으로 비례 계산하고 백의 자리에서 반올림(천원 단위)한 추정값입니다. (1회 = 160원석, 환급 체크 여부 반영)</p>
+
+    <div class="result-box" style="margin-bottom:14px;">
+      <div class="result-title"><span>총 소모 필요량</span></div>
+      <div class="result-item">
+        <div class="result-label">평균 (기댓값)</div>
+        <div class="result-value"><span class="num num-main" id="totMean">-</span><span class="cost" id="totRange"></span><span class="cost" id="totCost"></span></div>
+      </div>
+      <div class="result-item">
+        <div class="result-label">P90<small>90%가 이 횟수 이하로 달성</small></div>
+        <div class="result-value"><span class="num" id="totP90">-</span></div>
+      </div>
+      <button class="btn-toggle-chart" type="button" id="btnChart1">📈 총 소모 뽑기 수 백분위 그래프 보기</button>
+      <div class="chart-wrapper" id="chartWrap1">
+        <p class="chart-info" id="chartInfo1"></p>
+        <div class="chart-container" id="chart1"></div>
+      </div>
+    </div>
+
+    <div class="result-box">
+      <div class="result-title"><span>현재 보유량 차감 후 잔여 필요량</span></div>
+      <div class="result-item">
+        <div class="result-label"><span id="probTxt">보유량으로 목표 달성 확률</span><small>보유 인연 이내에 목표를 달성할 확률</small></div>
+        <div class="result-value"><span class="num num-prob" id="remProb">-</span></div>
+      </div>
+      <div class="result-item">
+        <div class="result-label">평균 (기댓값)</div>
+        <div class="result-value"><span class="num num-main" id="remMean">-</span><span class="cost" id="remRange"></span><span class="cost" id="remCost"></span></div>
+      </div>
+      <div class="result-item">
+        <div class="result-label">P90<small>90%가 이 횟수 이하로 달성</small></div>
+        <div class="result-value"><span class="num" id="remP90">-</span></div>
+      </div>
+      <button class="btn-toggle-chart" type="button" id="btnChart2">📈 잔여 필요 뽑기 수 백분위 그래프 보기</button>
+      <div class="chart-wrapper" id="chartWrap2">
+        <p class="chart-info" id="chartInfo2"></p>
+        <div class="chart-container" id="chart2"></div>
+      </div>
+    </div>
+    <p class="hint">잔여 필요량 = 각 시뮬레이션의 필요 뽑기 수 − 보유 인연 (0 미만은 0). 모든 숫자는 올림한 자연수입니다. 1회 = 160 원석.</p>
+  </div>
+
+  <!-- 5. 가정 설정 -->
+  <div class="card">
+    <details>
+      <summary>🔧 확률 모델 가정값 (클릭해서 열기/수정)</summary>
+      <div class="sec-label">캐릭터 이벤트 기원</div>
+      <div class="row">
+        <div class="input-group col"><label for="aCharBase">기본 5성 확률 (%)</label><input type="number" id="aCharBase" value="0.6" step="0.1" min="0" max="100"></div>
+        <div class="input-group col"><label for="aCharSoft">소프트 천장 시작 (회)</label><input type="number" id="aCharSoft" value="74" min="1" max="90"></div>
+      </div>
+      <div class="row">
+        <div class="input-group col"><label for="aCharInc">소프트 천장 회당 증가 (%p)</label><input type="number" id="aCharInc" value="6" step="0.1" min="0" max="100"></div>
+        <div class="input-group col"><label for="aCharHard">하드 천장 (회)</label><input type="number" id="aCharHard" value="90" min="2" max="200"></div>
+      </div>
+      <div class="row">
+        <div class="input-group col"><label for="aCharWin">반천장 픽업 확률 (%)</label><input type="number" id="aCharWin" value="50" min="0" max="100"></div>
+        <div class="input-group col"><label for="aCharRad">포착 광휘: 픽뚫 → 픽업 전환 (%)</label><input type="number" id="aCharRad" value="10" min="0" max="100"></div>
+      </div>
+      <div class="sec-label">무기 이벤트 기원</div>
+      <div class="row">
+        <div class="input-group col"><label for="aWBase">기본 5성 확률 (%)</label><input type="number" id="aWBase" value="0.7" step="0.1" min="0" max="100"></div>
+        <div class="input-group col"><label for="aWSoft">소프트 천장 시작 (회)</label><input type="number" id="aWSoft" value="63" min="1" max="80"></div>
+      </div>
+      <div class="row">
+        <div class="input-group col"><label for="aWInc">소프트 천장 회당 증가 (%p)</label><input type="number" id="aWInc" value="7" step="0.1" min="0" max="100"></div>
+        <div class="input-group col"><label for="aWHard">하드 천장 (회)</label><input type="number" id="aWHard" value="80" min="2" max="200"></div>
+      </div>
+      <div class="row">
+        <div class="input-group col"><label for="aWFeat">5성 중 픽업 무기 비율 (%)</label><input type="number" id="aWFeat" value="75" min="0" max="100"></div>
+        <div class="input-group col"><label for="aWChosen">픽업 중 지정 무기 비율 (%)</label><input type="number" id="aWChosen" value="50" min="0" max="100"></div>
+      </div>
+      <div class="input-group">
+        <label for="aWFate">운명의 궤도 최대 포인트 (0 = 궤도 미사용)</label>
+        <input type="number" id="aWFate" value="1" min="0" max="2">
+      </div>
+      <p class="hint">
+        <b>가정 사항</b><br>
+        · 5성 확률: 소프트 천장 n회째 = 기본 + 증가분 × (n − 시작 + 1), 하드 천장에서 100%.<br>
+        · 캐릭터 포착 광휘(5.0+)는 "픽뚫 시 일정 확률로 픽업으로 전환"하는 <b>단순화 모델</b>입니다. 기본값 10%에서 실질 픽업률은 약 55%입니다. 실제 내부 카운터 방식과 다를 수 있어 값을 직접 조정할 수 있게 했습니다.<br>
+        · 무기는 픽업 실패(25%) 시 다음 5성이 픽업 확정이며, 지정 무기가 아닌 5성은 운명의 궤도 포인트를 올립니다. (포인트 1이면 다음 5성은 지정 무기 확정)<br>
+        · 스타라이트 환급은 총 소모 뽑기 수 × (1 − 11.7%)를 올림한 추정값입니다.<br>
+        · 시뮬레이션은 난수 기반이므로 실행마다 값이 조금씩 달라질 수 있습니다. 결과 숫자는 모두 올림한 자연수입니다.
+      </p>
+    </details>
+  </div>
+
+  <div class="card">
+    <button class="btn-reset" type="button" id="btnReset">🗑️ 전체값 초기화</button>
+    <p class="hint" style="text-align:center;">입력한 모든 값(보유 인연, 스택, 선택 항목, 목표 목록, 가정값)을 처음 상태로 되돌립니다.</p>
+  </div>
+</div>
+
+<script>
+/*CORE_START*/
+function buildPityTable(base, soft, inc, hard) {
+  const t = new Float64Array(hard + 2);
+  for (let n = 1; n <= hard + 1; n++) {
+    if (n >= hard) t[n] = 1;
+    else if (n >= soft) t[n] = Math.min(1, base + inc * (n - soft + 1));
+    else t[n] = base;
+  }
+  return t;
+}
+function buildSimCfg(o) {
+  return {
+    ct: buildPityTable(o.charBase, o.charSoft, o.charInc, o.charHard),
+    wt: buildPityTable(o.wBase, o.wSoft, o.wInc, o.wHard),
+    charWin: o.charWin, charRad: o.charRad,
+    wFeat: o.wFeat, wChosen: o.wChosen, wMaxFate: o.wMaxFate,
+    needC: o.needC, needW: o.needW,
+    cPity: o.cPity, cG: o.cG, wPity: o.wPity, wG: o.wG, wFate: o.wFate
+  };
+}
+// 한 번의 시뮬레이션: 목표 달성까지 실제 뽑기를 순서대로 진행
+function simOne(c, out, i) {
+  let pulls = 0;
+  if (c.needC > 0) {
+    let pity = c.cPity, g = c.cG, copies = 0;
+    const ct = c.ct;
+    while (copies < c.needC) {
+      pulls++; pity++;
+      if (Math.random() < ct[pity]) {
+        pity = 0;
+        if (g) { copies++; g = false; }
+        else {
+          let win = Math.random() < c.charWin;
+          if (!win && Math.random() < c.charRad) win = true; // 포착 광휘(단순화)
+          if (win) copies++; else g = true;
+        }
+      }
+    }
+  }
+  if (c.needW > 0) {
+    let pity = c.wPity, gF = c.wG, fate = c.wFate, copies = 0;
+    const wt = c.wt, maxF = c.wMaxFate;
+    while (copies < c.needW) {
+      pulls++; pity++;
+      if (Math.random() < wt[pity]) {
+        pity = 0;
+        let chosen = false;
+        if (maxF > 0 && fate >= maxF) { chosen = true; gF = false; }
+        else {
+          const feat = gF ? true : (Math.random() < c.wFeat);
+          if (feat) { chosen = Math.random() < c.wChosen; gF = false; } else { gF = true; }
+        }
+        if (chosen) { copies++; fate = 0; }
+        else if (maxF > 0 && fate < maxF) fate++;
+      }
+    }
+  }
+  out.N[i] = pulls;
+}
+function newOut(S) { return { N: new Int32Array(S) }; }
+function runAllSync(cfg, S) { const out = newOut(S); for (let i = 0; i < S; i++) simOne(cfg, out, i); return out; }
+const REFUND_RATE = 0.117;
+const PRIMO_PER_PULL = 160, TRUCK_PRICE = 119000, TRUCK_PRIMO = 8080, FIRST_PRIMO = 12960;
+// 필요 뽑기 수 -> 금액 (1트럭 효율 기준 비례 계산, 천원 단위 반올림)
+// 초회 보너스 사용 시: 처음 12,960원석은 119,000원/12,960원석, 그 이후는 119,000원/8,080원석
+function costOf(pulls, firstBonus) {
+  const need = Math.ceil(pulls - 1e-9) * PRIMO_PER_PULL;
+  if (need <= 0) return { trucks: 0, won: 0 };
+  let trucks;
+  if (firstBonus) trucks = need <= FIRST_PRIMO ? need / FIRST_PRIMO : 1 + (need - FIRST_PRIMO) / TRUCK_PRIMO;
+  else trucks = need / TRUCK_PRIMO;
+  return { trucks: trucks, won: Math.round(trucks * TRUCK_PRICE / 1000) * 1000 };
+}
+// 정렬된 배열에서 값이 limit 이하인 비율
+function probAtMost(sorted, limit) {
+  let lo = 0, hi = sorted.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (sorted[mid] <= limit) lo = mid + 1; else hi = mid; }
+  return lo / sorted.length;
+}
+function netTotals(out, useRefund) {
+  const S = out.N.length, r = new Float64Array(S);
+  if (!useRefund) { for (let i = 0; i < S; i++) r[i] = out.N[i]; return r; }
+  for (let i = 0; i < S; i++) r[i] = Math.ceil(out.N[i] * (1 - REFUND_RATE) - 1e-9);
+  return r;
+}
+function statsOf(sorted) {
+  const n = sorted.length; let sum = 0;
+  for (let i = 0; i < n; i++) sum += sorted[i];
+  const p = {};
+  for (let k = 10; k <= 90; k += 10) p[k] = sorted[Math.max(0, Math.ceil(k / 100 * n) - 1)];
+  p[16] = sorted[Math.max(0, Math.ceil(0.16 * n) - 1)]; p[84] = sorted[Math.max(0, Math.ceil(0.84 * n) - 1)];
+  return { mean: sum / n, p: p };
+}
+function remainingSorted(sorted, have) {
+  const r = new Float64Array(sorted.length);
+  for (let i = 0; i < sorted.length; i++) r[i] = Math.max(0, sorted[i] - have);
+  return r;
+}
+/*CORE_END*/
+
+/* ===== UI ===== */
+const $ = id => document.getElementById(id);
+let chars = [{ id: 1, own: 0, c: 0 }];
+let weapons = [{ id: 2, own: 0, r: 1 }];
+let nextId = 3;
+let runId = 0, simRes = null, simKey = '', simBusy = false, debTimer = null;
+let sortedOff = null, sortedOn = null;
+
+const RESET_IDS = ['curPrism','incomeDate','incomePerDay','firstBonus','globalCharPity','globalCharGuaranteed','globalWeaponPity','globalWeaponFate','simCount','refundOn',
+  'aCharBase','aCharSoft','aCharInc','aCharHard','aCharWin','aCharRad','aWBase','aWSoft','aWInc','aWHard','aWFeat','aWChosen','aWFate'];
+
+function num(id, def, min, max, int) {
+  let v = parseFloat($(id).value);
+  if (!isFinite(v)) v = def;
+  if (int) v = Math.floor(v);
+  return Math.min(max, Math.max(min, v));
+}
+const up = x => Math.ceil(x - 1e-9);
+// 오늘 제외, 내일부터 선택일까지의 일수 (선택 없거나 오늘 이전이면 0)
+function incomeDays() {
+  const v = $('incomeDate').value;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || '');
+  if (!m) return 0;
+  const now = new Date();
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const sel = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  return Math.max(0, Math.round((sel - today) / 86400000));
+}
+function incomeExtraPulls() {
+  const days = incomeDays();
+  const perDay = num('incomePerDay', 150, 0, 100000);
+  return { days: days, primos: days * perDay, pulls: Math.floor(days * perDay / PRIMO_PER_PULL) };
+}
+function fmtUp(x) { return up(x).toLocaleString('ko-KR') + '회'; }
+
+function needOfChar(it) { return Math.max(0, it.c + 1 - it.own); }
+function needOfWeapon(it) { return Math.max(0, it.r - it.own); }
+
+function readInputs() {
+  const hardC = num('aCharHard', 90, 2, 200, true), hardW = num('aWHard', 80, 2, 200, true);
+  const o = {
+    charBase: num('aCharBase', 0.6, 0, 100) / 100,
+    charSoft: Math.min(num('aCharSoft', 74, 1, 200, true), hardC),
+    charInc: num('aCharInc', 6, 0, 100) / 100,
+    charHard: hardC,
+    charWin: num('aCharWin', 50, 0, 100) / 100,
+    charRad: num('aCharRad', 10, 0, 100) / 100,
+    wBase: num('aWBase', 0.7, 0, 100) / 100,
+    wSoft: Math.min(num('aWSoft', 63, 1, 200, true), hardW),
+    wInc: num('aWInc', 7, 0, 100) / 100,
+    wHard: hardW,
+    wFeat: num('aWFeat', 75, 0, 100) / 100,
+    wChosen: num('aWChosen', 50, 0, 100) / 100,
+    wMaxFate: num('aWFate', 1, 0, 2, true),
+    needC: chars.reduce((s, x) => s + needOfChar(x), 0),
+    needW: weapons.reduce((s, x) => s + needOfWeapon(x), 0),
+    cG: $('globalCharGuaranteed').value === 'true',
+    wG: false
+  };
+  o.cPity = Math.min(num('globalCharPity', 0, 0, 89, true), o.charHard - 1);
+  o.wPity = Math.min(num('globalWeaponPity', 0, 0, 79, true), o.wHard - 1);
+  o.wFate = Math.min(num('globalWeaponFate', 0, 0, 1, true), o.wMaxFate);
+  o.sims = parseInt($('simCount').value, 10) || 100000;
+  o.baseHave = num('curPrism', 0, 0, 1e9, true);
+  o.extra = incomeExtraPulls();
+  o.have = o.baseHave + o.extra.pulls;
+  return o;
+}
+
+/* ----- 목록 렌더 ----- */
+function opts(list, sel) {
+  return list.map(([v, t]) => '<option value="' + v + '"' + (v === sel ? ' selected' : '') + '>' + t + '</option>').join('');
+}
+const CHAR_TARGET = [[0,'명함 (C0)'],[1,'C1'],[2,'C2'],[3,'C3'],[4,'C4'],[5,'C5'],[6,'풀돌 (C6)']];
+const CHAR_OWN = [[0,'미보유'],[1,'명함 (C0)'],[2,'C1 (1돌)'],[3,'C2 (2돌)'],[4,'C3 (3돌)'],[5,'C4 (4돌)'],[6,'C5 (5돌)'],[7,'풀돌 (C6)']];
+const W_TARGET = [[1,'R1 (1개)'],[2,'R2'],[3,'R3'],[4,'R4'],[5,'풀재 (R5)']];
+const W_OWN = [[0,'미보유'],[1,'R1'],[2,'R2'],[3,'R3'],[4,'R4'],[5,'풀재 (R5)']];
+
+function buildCard(kind, it, idx) {
+  const isC = kind === 'char';
+  const card = document.createElement('div'); card.className = 'item-row-card';
+  card.innerHTML = '<div class="item-head"><span>' + (isC ? '캐릭터 ' : '무기 ') + (idx + 1) + '</span><button type="button" class="btn-del">삭제</button></div>' +
+    '<div class="row"><div class="input-group col"><label>현재 ' + (isC ? '캐릭터' : '무기') + ' 상태</label><select class="selOwn">' + opts(isC ? CHAR_OWN : W_OWN, it.own) + '</select></div>' +
+    '<div class="input-group col"><label>목표 ' + (isC ? '돌파' : '재련') + '</label><select class="selTarget">' + opts(isC ? CHAR_TARGET : W_TARGET, isC ? it.c : it.r) + '</select></div></div>' +
+    '<p class="hint need"></p>';
+  const hint = card.querySelector('.need');
+  const upd = () => {
+    const n = isC ? needOfChar(it) : needOfWeapon(it);
+    hint.textContent = n > 0 ? '추가로 필요한 개수: ' + n + '개' : '이미 목표를 달성한 상태입니다 (추가 뽑기 0개).';
+  };
+  upd();
+  card.querySelector('.btn-del').onclick = () => {
+    if (isC) chars = chars.filter(x => x.id !== it.id); else weapons = weapons.filter(x => x.id !== it.id);
+    renderLists(); onChange();
+  };
+  card.querySelector('.selOwn').onchange = e => { it.own = parseInt(e.target.value, 10); upd(); onChange(); };
+  card.querySelector('.selTarget').onchange = e => { const v = parseInt(e.target.value, 10); if (isC) it.c = v; else it.r = v; upd(); onChange(); };
+  return card;
+}
+function renderLists() {
+  const cl = $('charList'); cl.textContent = '';
+  chars.forEach((it, i) => cl.appendChild(buildCard('char', it, i)));
+  if (!chars.length) { const p = document.createElement('p'); p.className = 'hint'; p.textContent = '캐릭터 목표가 없습니다.'; cl.appendChild(p); }
+  const wl = $('weaponList'); wl.textContent = '';
+  weapons.forEach((it, i) => wl.appendChild(buildCard('weapon', it, i)));
+  if (!weapons.length) { const p = document.createElement('p'); p.className = 'hint'; p.textContent = '무기 목표가 없습니다.'; wl.appendChild(p); }
+}
+
+/* ----- 시뮬레이션 실행 (청크 단위) ----- */
+function simKeyOf(o) {
+  return JSON.stringify([o.charBase,o.charSoft,o.charInc,o.charHard,o.charWin,o.charRad,o.wBase,o.wSoft,o.wInc,o.wHard,o.wFeat,o.wChosen,o.wMaxFate,
+    o.needC,o.needW,o.cG,o.wG,o.cPity,o.wPity,o.wFate,o.sims]);
+}
+function setProgress(p, text, badge) {
+  $('simProgress').style.width = Math.round(p * 100) + '%';
+  if (text !== undefined) $('simStatus').textContent = text;
+  if (badge !== undefined) $('simBadge').textContent = badge;
+}
+function startSim(o, key) {
+  const id = ++runId; simBusy = true; simRes = null;
+  const cfg = buildSimCfg(o), S = o.sims, out = newOut(S);
+  let done = 0; const CH = 4000, t0 = performance.now();
+  setProgress(0, '시뮬레이션 계산 중...', '계산 중');
+  function step() {
+    if (id !== runId) return;
+    const end = Math.min(S, done + CH);
+    for (; done < end; done++) simOne(cfg, out, done);
+    setProgress(done / S, '시뮬레이션 계산 중... ' + Math.round(done / S * 100) + '%');
+    if (done < S) setTimeout(step, 0);
+    else {
+      simBusy = false; simRes = out; simKey = key;
+      sortedOff = netTotals(out, false); sortedOff.sort();
+      sortedOn = netTotals(out, true); sortedOn.sort();
+      const sec = ((performance.now() - t0) / 1000).toFixed(1);
+      setProgress(1, S.toLocaleString('ko-KR') + '회 시뮬레이션 완료 (' + sec + '초)', '완료');
+      render();
+    }
+  }
+  step();
+}
+
+/* ----- 결과 렌더 ----- */
+function setText(id, t) { $(id).textContent = t; }
+function costText(pulls, fb) {
+  return costOf(pulls, fb).won.toLocaleString('ko-KR') + '원';
+}
+function renderChart(elId, st, fb) {
+  const el = $(elId); el.textContent = '';
+  const items = [];
+  for (let k = 10; k <= 90; k += 10) items.push({ lbl: 'P' + k, v: up(st.p[k]), mean: false });
+  items.push({ lbl: '평균', v: up(st.mean), mean: true });
+  // 평균 막대를 값(높이) 순서에 맞는 위치로 배치 (동률이면 백분위 뒤)
+  items.sort((a, b) => a.v - b.v || (a.mean ? 1 : 0) - (b.mean ? 1 : 0));
+  const max = Math.max(1, ...items.map(x => x.v));
+  items.forEach((it, idx) => {
+    const col = document.createElement('div'); col.className = 'bar-col';
+    const v = document.createElement('div'); v.className = 'bar-val'; v.textContent = it.v.toLocaleString('ko-KR');
+    const b = document.createElement('div'); b.className = 'bar-body' + (it.mean ? ' is-mean' : '');
+    b.style.height = Math.max(2, Math.round(it.v / max * 130)) + 'px';
+    const l = document.createElement('div'); l.className = 'bar-lbl'; l.textContent = it.lbl;
+    const tip = document.createElement('div'); tip.className = 'bar-tip';
+    tip.textContent = it.lbl + ' ' + it.v.toLocaleString('ko-KR') + '회 → ' + costText(it.v, fb);
+    if (idx <= 2) { tip.style.left = '0'; tip.style.transform = 'translateY(-100%)'; }
+    else if (idx >= items.length - 3) { tip.style.right = '0'; tip.style.transform = 'translateY(-100%)'; }
+    else { tip.style.left = '50%'; tip.style.transform = 'translate(-50%,-100%)'; }
+    col.onclick = () => { const was = col.classList.contains('show'); Array.prototype.forEach.call(el.children, c => c.classList && c.classList.remove('show')); if (!was) col.classList.add('show'); };
+    col.appendChild(v); col.appendChild(b); col.appendChild(l); col.appendChild(tip); el.appendChild(col);
+  });
+}
+function render() {
+  const o = readInputs(), use = $('refundOn').checked;
+  $('resultCard').classList.toggle('refund-on', use);
+  const hint = $('incomeHint');
+  if (o.extra.days > 0) {
+    hint.hidden = false; hint.textContent = '📅 내일부터 ' + $('incomeDate').value + '까지 ' + o.extra.days + '일 × ' + num('incomePerDay', 150, 0, 100000).toLocaleString('ko-KR') + '원석 = ' + o.extra.primos.toLocaleString('ko-KR') + '원석 → +' + o.extra.pulls.toLocaleString('ko-KR') + '회 반영 중';
+  } else { hint.hidden = true; hint.textContent = ''; }
+  $('btnCal').classList.toggle('active', o.extra.days > 0);
+  setText('goalSummary', '추가로 필요한 목표: 캐릭터 ' + o.needC + '개 · 무기 ' + o.needW + '개 / 보유 인연 ' + o.have.toLocaleString('ko-KR') + '개' + (o.extra.pulls > 0 ? ' (수급 +' + o.extra.pulls.toLocaleString('ko-KR') + ' 포함)' : ''));
+  const ids = ['totMean','totP90','remMean','remP90','totCost','remCost','remProb','totRange','remRange'];
+  if (o.needC + o.needW === 0) {
+    ids.forEach(i => setText(i, '-'));
+    $('chart1').textContent = ''; $('chart2').textContent = '';
+    setText('chartInfo1', ''); setText('chartInfo2', '');
+    setProgress(0, (chars.length + weapons.length) ? '현재 상태가 이미 목표를 충족해 추가 뽑기가 필요 없습니다.' : '캐릭터 또는 무기 목표를 하나 이상 추가하세요.', '대기 중');
+    return;
+  }
+  if (!simRes) return;
+  const main = use ? sortedOn : sortedOff;
+  const T = statsOf(main), R = statsOf(remainingSorted(main, o.have));
+  setText('totMean', fmtUp(T.mean)); setText('totP90', fmtUp(T.p[90]));
+  setText('remMean', fmtUp(R.mean)); setText('remP90', fmtUp(R.p[90]));
+  const fb = $('firstBonus').checked;
+  const rng = st => '운이 보통인 68% 구간: ' + up(st.p[16]).toLocaleString('ko-KR') + ' ~ ' + up(st.p[84]).toLocaleString('ko-KR') + '회';
+  setText('totRange', rng(T)); setText('remRange', rng(R));
+  setText('totCost', '≈ ' + costText(T.mean, fb)); setText('remCost', '≈ ' + costText(R.mean, fb));
+  const pr = probAtMost(main, o.have);
+  setText('probTxt', '보유 ' + o.have.toLocaleString('ko-KR') + '회로 목표 달성 확률');
+  setText('remProb', pr >= 1 ? '100%' : pr <= 0 ? '0%' : (pr < 0.001 ? '<0.1%' : Math.min(99.9, Math.floor(pr * 1000) / 10).toFixed(1) + '%'));
+  const info = (use ? '환급 반영(11.7%, 추정)' : '환급 미반영') + ' · 시뮬레이션 ' + simRes.N.length.toLocaleString('ko-KR') + '회 · 주황 막대 = 평균 · 막대에 마우스를 올리면 필요 과금액 표시';
+  setText('chartInfo1', '총 소모 뽑기 수의 P10~P90 / ' + info);
+  setText('chartInfo2', '보유 ' + o.have.toLocaleString('ko-KR') + '개 차감 후 잔여 뽑기 수의 P10~P90 / ' + info);
+  renderChart('chart1', T, fb); renderChart('chart2', R, fb);
+}
+
+/* ----- 변경 처리 ----- */
+function onChange() { clearTimeout(debTimer); debTimer = setTimeout(recalc, 200); }
+function recalc() {
+  const o = readInputs();
+  if (o.needC + o.needW === 0) { runId++; simBusy = false; simRes = null; render(); return; }
+  const key = simKeyOf(o);
+  if (simRes && key === simKey && !simBusy) { render(); return; }
+  startSim(o, key);
+}
+function onLightChange() { if (simRes && !simBusy) render(); else if (!simBusy) recalc(); else render(); }
+
+const DEFAULTS = {};
+function resetAll() {
+  if (typeof confirm === 'function' && !confirm('모든 입력값을 초기화할까요?')) return;
+  RESET_IDS.forEach(id => { const el = $(id); if (el.type === 'checkbox') el.checked = DEFAULTS[id]; else el.value = DEFAULTS[id]; });
+  chars = [{ id: nextId++, own: 0, c: 0 }];
+  weapons = [{ id: nextId++, own: 0, r: 1 }];
+  renderLists();
+  clearTimeout(debTimer);
+  runId++; simBusy = false; simRes = null;
+  recalc();
+}
+function init() {
+  RESET_IDS.forEach(id => { const el = $(id); DEFAULTS[id] = el.type === 'checkbox' ? el.checked : el.value; });
+  renderLists();
+  $('btnReset').onclick = resetAll;
+  (function () { // 날짜 선택은 내일부터 가능
+    const t = new Date(); t.setDate(t.getDate() + 1);
+    const pad = n => String(n).padStart(2, '0');
+    $('incomeDate').min = t.getFullYear() + '-' + pad(t.getMonth() + 1) + '-' + pad(t.getDate());
+  })();
+  $('btnCal').onclick = () => { const pn = $('incomePanel'); pn.hidden = !pn.hidden; };
+  $('btnIncomeClear').onclick = () => { $('incomeDate').value = ''; onLightChange(); };
+  ['globalCharPity','globalCharGuaranteed','globalWeaponPity','globalWeaponFate','simCount',
+   'aCharBase','aCharSoft','aCharInc','aCharHard','aCharWin','aCharRad','aWBase','aWSoft','aWInc','aWHard','aWFeat','aWChosen','aWFate']
+    .forEach(id => { $(id).addEventListener('input', onChange); $(id).addEventListener('change', onChange); });
+  ['curPrism','refundOn','firstBonus','incomeDate','incomePerDay'].forEach(id => { $(id).addEventListener('input', onLightChange); $(id).addEventListener('change', onLightChange); });
+  $('btnAddChar').onclick = () => { chars.push({ id: nextId++, own: 0, c: 0 }); renderLists(); onChange(); };
+  $('btnAddWeapon').onclick = () => { weapons.push({ id: nextId++, own: 0, r: 1 }); renderLists(); onChange(); };
+  $('btnChart1').onclick = () => { const w = $('chartWrap1'); w.classList.toggle('open'); $('btnChart1').textContent = w.classList.contains('open') ? '📉 그래프 닫기' : '📈 총 소모 뽑기 수 백분위 그래프 보기'; };
+  $('btnChart2').onclick = () => { const w = $('chartWrap2'); w.classList.toggle('open'); $('btnChart2').textContent = w.classList.contains('open') ? '📉 그래프 닫기' : '📈 잔여 필요 뽑기 수 백분위 그래프 보기'; };
+  recalc();
+}
+if (typeof document !== 'undefined' && document.getElementById('charList')) init();
+</script>
+</body>
+</html>
